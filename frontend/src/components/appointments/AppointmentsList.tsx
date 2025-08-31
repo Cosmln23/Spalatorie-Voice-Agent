@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Filter, Bell, ChevronLeft, ChevronRight, Mic, Activity, Calendar, X, Menu, User, Phone, Mail, Clock as ClockIcon, Plus, Ban, LayoutDashboard } from 'lucide-react'
+import { Search, Filter, Bell, ChevronLeft, ChevronRight, Mic, Activity, Calendar, X, Menu, User, Phone, Mail, Clock as ClockIcon, Plus, Ban, LayoutDashboard, Car, DollarSign, GaugeCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Badge from '@/components/ui/Badge'
+import TrackOccupancyView from '@/components/dashboard/TrackOccupancyView'
+import AppointmentsQueue from '@/components/dashboard/AppointmentsQueue'
+import WeatherWidget from '@/components/dashboard/WeatherWidget'
 
 interface Appointment {
   id: string
@@ -16,13 +19,23 @@ interface Appointment {
 }
 
 interface AppointmentsListProps {
-  selectedAppointment: string | null
-  onSelectAppointment: (id: string) => void
   isMobile?: boolean
   onMobileToggle?: () => void
 }
 
-// Extended appointment interface with client details
+// The interfaces below are currently unused after removing the old list,
+// but they might be useful for the "Add Appointment" or other future modals.
+// They will be reviewed in a future refactoring pass.
+interface Appointment {
+  id: string
+  clientName: string
+  service: string
+  time: string
+  status: 'confirmed' | 'pending' | 'in-progress' | 'completed' | 'cancelled'
+  type: 'voice' | 'manual'
+  preview: string
+}
+
 interface AppointmentWithDetails extends Appointment {
   clientPhone?: string
   clientEmail?: string
@@ -33,131 +46,12 @@ interface AppointmentWithDetails extends Appointment {
   preferences?: string[]
 }
 
-const mockAppointments: AppointmentWithDetails[] = [
-  {
-    id: '5',
-    clientName: 'Mihai Georgescu',
-    service: 'Tuns + Spălat',
-    time: '08:00',
-    status: 'completed',
-    type: 'voice',
-    preview: 'Serviciu complet finalizat. Client mulțumit, programare următoare în 3 săptămâni.',
-    clientPhone: '+40 744 555 123',
-    clientEmail: 'mihai.georgescu@email.com',
-    duration: '40 min',
-    price: '55 RON',
-    lastVisit: '11 Octombrie 2024',
-    clientNotes: 'Client fidel, vine regulat la 3 săptămâni.',
-    preferences: ['Tuns clasic', 'Spălat cu șampon anti-mătreață', 'Styling minimal']
-  },
-  {
-    id: '1',
-    clientName: 'Ion Popescu',
-    service: 'Tuns + Barbă',
-    time: '10:30',
-    status: 'completed',
-    type: 'voice',
-    preview: 'Programare finalizată pentru tuns și aranjat barbă. Client obișnuit, preferințe cunoscute.',
-    clientPhone: '+40 123 456 789',
-    clientEmail: 'ion.popescu@email.com',
-    duration: '45 min',
-    price: '85 RON',
-    lastVisit: '15 Aprilie 2024',
-    clientNotes: 'Client obișnuit, preferă tunsoarea scurtă pe lateral și barbă aranjată clasic.',
-    preferences: ['Tunsoare scurtă', 'Barbă îngrijită', 'Fără gel']
-  },
-  {
-    id: '2',
-    clientName: 'Maria Ionescu',
-    service: 'Tuns + Vopsit',
-    time: '11:15',
-    status: 'in-progress',
-    type: 'voice',
-    preview: 'În desfășurare - tuns complet și vopsire cu nuanța preferată. Estimat 2 ore.',
-    clientPhone: '+40 987 654 321',
-    clientEmail: 'maria.ionescu@email.com',
-    duration: '2 ore',
-    price: '180 RON',
-    lastVisit: '8 Martie 2024',
-    clientNotes: 'Preferă culori naturale, are părul sensibil.',
-    preferences: ['Culori naturale', 'Tratamente hidratante', 'Fără amoniac']
-  },
-  {
-    id: '3',
-    clientName: 'Alexandru Marin',
-    service: 'Tuns simplu',
-    time: '14:00',
-    status: 'confirmed',
-    type: 'manual',
-    preview: 'Următorul client - programare confirmată. Client nou, fără istoric anterior.',
-    clientPhone: '+40 755 123 456',
-    clientEmail: 'alex.marin@email.com',
-    duration: '30 min',
-    price: '45 RON',
-    lastVisit: null,
-    clientNotes: 'Client nou, prima vizită.',
-    preferences: []
-  },
-  {
-    id: '4',
-    clientName: 'Elena Vasile',
-    service: 'Coafură ocazie',
-    time: '16:30',
-    status: 'confirmed',
-    type: 'voice',
-    preview: 'Coafură pentru eveniment special. Discutat modelul preferat și accesoriile necesare.',
-    clientPhone: '+40 731 987 654',
-    clientEmail: 'elena.vasile@email.com',
-    duration: '90 min',
-    price: '150 RON',
-    lastVisit: '20 Septembrie 2024',
-    clientNotes: 'Preferă coafuri elegante pentru evenimente. Are părul lung și des.',
-    preferences: ['Coafuri elegante', 'Fixativ puternic', 'Accesorii florale']
-  },
-]
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case 'confirmed': return 'success'
-    case 'pending': return 'warning'
-    case 'in-progress': return 'info'
-    case 'completed': return 'success'
-    case 'cancelled': return 'error'
-    default: return 'neutral'
-  }
-}
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'confirmed': return 'Confirmat'
-    case 'pending': return 'În așteptare'
-    case 'in-progress': return 'În desfășurare'
-    case 'completed': return 'Finalizat'
-    case 'cancelled': return 'Anulat'
-    default: return status
-  }
-}
-
-export default function AppointmentsList({ selectedAppointment, onSelectAppointment, isMobile, onMobileToggle }: AppointmentsListProps) {
+export default function AppointmentsList({ isMobile, onMobileToggle }: AppointmentsListProps) {
   const [showCalendar, setShowCalendar] = useState(false)
-  const [showClientDetails, setShowClientDetails] = useState(false)
-  const [selectedClient, setSelectedClient] = useState<AppointmentWithDetails | null>(null)
   const [showAddAppointment, setShowAddAppointment] = useState(false)
 
-  const handleShowClientDetails = (appointment: AppointmentWithDetails) => {
-    setSelectedClient(appointment)
-    setShowClientDetails(true)
-  }
-
-  // Function to identify next client (first upcoming confirmed appointment)
-  const getNextClientId = (): string | null => {
-    const upcomingAppointments = mockAppointments.filter(
-      apt => apt.status === 'confirmed' || apt.status === 'pending'
-    )
-    return upcomingAppointments.length > 0 ? upcomingAppointments[0].id : null
-  }
-
-  const nextClientId = getNextClientId()
+  // NOTE: The logic for showing client details has been removed as its trigger (the old list) is gone.
+  // This can be re-added when a new trigger point is implemented.
 
   return (
     <div className={cn(
@@ -177,9 +71,11 @@ export default function AppointmentsList({ selectedAppointment, onSelectAppointm
               </button>
             )}
             <LayoutDashboard className="w-4 h-4 text-primary" />
-            <h1 className="text-3xl font-bold text-primary">Tablou de Bord</h1>
+            <h1 className="text-3xl font-bold text-primary">Dashboard (Tablou de Bord Operațional)</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <WeatherWidget />
+            <div className='h-6 w-px bg-border'></div>
             <p className="text-sm text-secondary">Astăzi, 12 Oct 2025</p>
             <button className="p-1.5 text-secondary hover:text-primary rounded-2xl hover:bg-card-hover transition-colors relative">
               <Bell className="h-4 w-4" />
@@ -189,23 +85,48 @@ export default function AppointmentsList({ selectedAppointment, onSelectAppointm
         </div>
       </div>
       
-      {/* Compact Status Bar */}
-      <div className="px-4 py-2 border-b border-border bg-card">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <Mic className="w-4 h-4 text-primary" />
-            <span className="text-secondary">Agent Vocal</span>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 bg-secondary rounded-full animate-pulse"></div>
-              <span className="text-primary font-medium">Activ</span>
+      {/* KPI Cards */}
+      <div className="p-4 border-b border-border bg-card">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Vehicule Procesate Azi */}
+          <div className="bg-secondary/5 p-4 rounded-2xl flex items-center gap-4">
+            <div className="bg-secondary/10 p-3 rounded-xl">
+              <Car className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Vehicule Procesate Azi</p>
+              <p className="text-2xl font-bold text-primary">42</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-secondary">
-            <span>Programări Azi 08:00–18:00</span>
-            <span className="font-bold text-primary">14</span>
-            <span className="text-primary">+2 față de ieri</span>
-            <span>8 Finalizate</span>
-            <span>6 Programate</span>
+          {/* Card 2: Venit Estimat Azi */}
+          <div className="bg-secondary/5 p-4 rounded-2xl flex items-center gap-4">
+            <div className="bg-secondary/10 p-3 rounded-xl">
+              <DollarSign className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Venit Estimat Azi</p>
+              <p className="text-2xl font-bold text-primary">3,150 RON</p>
+            </div>
+          </div>
+          {/* Card 3: Rata de Utilizare Piste */}
+          <div className="bg-secondary/5 p-4 rounded-2xl flex items-center gap-4">
+            <div className="bg-secondary/10 p-3 rounded-xl">
+              <GaugeCircle className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Rata de Utilizare Piste</p>
+              <p className="text-2xl font-bold text-primary">85%</p>
+            </div>
+          </div>
+          {/* Card 4: Timp Mediu per Serviciu */}
+          <div className="bg-secondary/5 p-4 rounded-2xl flex items-center gap-4">
+            <div className="bg-secondary/10 p-3 rounded-xl">
+              <ClockIcon className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary">Timp Mediu per Serviciu</p>
+              <p className="text-2xl font-bold text-primary">25 min</p>
+            </div>
           </div>
         </div>
       </div>
@@ -242,93 +163,9 @@ export default function AppointmentsList({ selectedAppointment, onSelectAppointm
         </button>
       </div>
       
-      {/* Agenda Header */}
-      <div className="p-3 border-b border-border bg-card">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-medium text-primary">Agenda Zilei</h3>
-          <div className="flex items-center gap-2">
-            <button className="p-1 text-secondary hover:text-primary rounded-2xl hover:bg-card-hover transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button className="text-sm font-medium text-primary px-2 hover:bg-card-hover rounded-2xl transition-colors" onClick={() => setShowCalendar(!showCalendar)}>Astăzi</button>
-            <button className="p-1 text-secondary hover:text-primary rounded-2xl hover:bg-card-hover transition-colors">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Appointments List */}
-      <div className="flex-1 overflow-y-auto relative">
-        {/* Timeline Line */}
-        <div className="absolute left-6 top-0 bottom-0 w-px bg-border z-0"></div>
-        {mockAppointments.map((appointment) => {
-          const isNextClient = appointment.id === nextClientId
-          
-          return (
-            <div
-              key={appointment.id}
-              onClick={() => onSelectAppointment(appointment.id)}
-              className={cn(
-                'border-b border-border px-4 py-3 cursor-pointer transition-colors relative',
-                selectedAppointment === appointment.id
-                  ? 'bg-secondary/10 border-l-2 border-l-secondary'
-                  : isNextClient
-                    ? 'bg-accent/10 border-l-4 border-l-accent hover:bg-accent/15'
-                    : 'bg-card hover:bg-card-hover'
-              )}
-            >
-            {/* Next Client Badge - Top Right Corner */}
-            {isNextClient && (
-              <div className="absolute top-2 right-4 text-primary text-xs font-medium">
-                Următorul Client
-              </div>
-            )}
-            
-            {/* Timeline Dot */}
-            <div className={cn(
-              "absolute left-[22px] top-4 w-3 h-3 rounded-full border-2 border-card z-10",
-              isNextClient ? 'bg-accent border-accent animate-pulse' :
-              appointment.status === 'completed' ? 'bg-secondary' :
-              appointment.status === 'in-progress' ? 'bg-secondary' :
-              'bg-secondary/50'
-            )}></div>
-            
-            <div className="flex items-center mb-2 ml-6">
-              <div className="flex items-center">
-                <span className="text-sm text-secondary bg-secondary/10 px-2 py-1 rounded">{appointment.time}</span>
-                <div className="w-3 h-px bg-border mx-2"></div>
-                <span className="text-base font-medium text-primary">{appointment.clientName}</span>
-              </div>
-            </div>
-            
-            <div className="text-base font-medium text-primary mb-2 truncate ml-18">
-              {appointment.service}
-            </div>
-            
-            <div className="text-sm text-secondary truncate mb-2 ml-18">
-              {appointment.preview}
-            </div>
-            
-            <div className="flex items-center justify-between ml-6">
-              <div className="flex items-center gap-2">
-                <Badge variant={getStatusBadge(appointment.status)}>
-                  {getStatusText(appointment.status)}
-                </Badge>
-                <Badge variant={appointment.type === 'voice' ? 'info' : 'neutral'}>
-                  {appointment.type === 'voice' ? '🎤 Voce' : '⌨️ Manual'}
-                </Badge>
-              </div>
-              <button 
-                onClick={() => handleShowClientDetails(appointment)}
-                className="text-sm text-secondary hover:text-primary bg-secondary/5 hover:bg-secondary/10 px-2 py-1 rounded-2xl transition-colors"
-              >
-                Detalii
-              </button>
-            </div>
-          </div>
-          )
-        })}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        <TrackOccupancyView />
+        <AppointmentsQueue />
       </div>
       
       {/* Calendar Modal */}
@@ -400,114 +237,8 @@ export default function AppointmentsList({ selectedAppointment, onSelectAppointm
         </div>
       )}
       
-      {/* Client Details Modal */}
-      {showClientDetails && selectedClient && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowClientDetails(false)}>
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-medium text-primary">Detalii Client</h3>
-              <button 
-                onClick={() => setShowClientDetails(false)}
-                className="p-1 text-secondary hover:text-primary rounded-2xl hover:bg-card-hover transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Client Info */}
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="flex items-center gap-4 p-4 bg-secondary/5 rounded-2xl">
-                <div className="w-12 h-12 rounded-full bg-secondary/20 flex items-center justify-center">
-                  <User className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-medium text-primary">{selectedClient.clientName}</h4>
-                  <p className="text-sm text-secondary">
-                    {selectedClient.lastVisit ? `Ultima vizită: ${selectedClient.lastVisit}` : 'Client nou'}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Contact Info */}
-              <div className="grid grid-cols-1 gap-4">
-                <div className="flex items-center gap-3 p-3 bg-card rounded-2xl border border-border">
-                  <Phone className="w-4 h-4 text-secondary" />
-                  <span className="text-primary">{selectedClient.clientPhone}</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-card rounded-2xl border border-border">
-                  <Mail className="w-4 h-4 text-secondary" />
-                  <span className="text-primary">{selectedClient.clientEmail}</span>
-                </div>
-              </div>
-              
-              {/* Appointment Info */}
-              <div className="p-4 bg-secondary/5 rounded-2xl">
-                <h5 className="text-base font-medium text-primary mb-3">Programarea Actuală</h5>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-secondary">Serviciu:</span>
-                    <span className="text-primary font-medium">{selectedClient.service}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-secondary">Ora:</span>
-                    <span className="text-primary">{selectedClient.time}</span>
-                  </div>
-                  {selectedClient.duration && (
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Durată:</span>
-                      <span className="text-primary">{selectedClient.duration}</span>
-                    </div>
-                  )}
-                  {selectedClient.price && (
-                    <div className="flex justify-between">
-                      <span className="text-secondary">Preț:</span>
-                      <span className="text-primary font-medium">{selectedClient.price}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Notes */}
-              {selectedClient.clientNotes && (
-                <div>
-                  <h5 className="text-base font-medium text-primary mb-3">Observații</h5>
-                  <p className="text-secondary bg-card border border-border rounded-2xl p-3 leading-relaxed">
-                    {selectedClient.clientNotes}
-                  </p>
-                </div>
-              )}
-              
-              {/* Preferences */}
-              {selectedClient.preferences && selectedClient.preferences.length > 0 && (
-                <div>
-                  <h5 className="text-base font-medium text-primary mb-3">Preferințe</h5>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedClient.preferences.map((preference, index) => (
-                      <Badge key={index} variant="neutral">
-                        {preference}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Actions */}
-            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
-              <button 
-                onClick={() => setShowClientDetails(false)}
-                className="flex-1 px-4 py-2 bg-secondary/10 text-secondary rounded-2xl hover:bg-secondary/20 transition-colors"
-              >
-                Închide
-              </button>
-              <button className="flex-1 px-4 py-2 bg-primary text-background rounded-2xl hover:bg-secondary transition-colors">
-                Editează Client
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* TODO: The Client Details modal was removed as it's no longer accessible.
+          It can be re-added when a new trigger point is implemented. */}
       
       {/* Add Appointment Modal */}
       {showAddAppointment && (
