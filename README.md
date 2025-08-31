@@ -353,4 +353,5 @@ MIT License - vezi `LICENSE` file pentru detalii.
 - [ ] Production deployment
 
 **Current Phase**: 🏗️ **Foundation & Setup**#   S p a l a t o r i e - V o i c e - A g e n t  
+ #   S p a l a t o r i e - V o i c e - A g e n t  
  
